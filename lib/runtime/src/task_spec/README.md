@@ -25,13 +25,16 @@ Thus, what we previously referred to as `TaskInvocation` is actually logically t
 
 ```mermaid
 flowchart TD
-    A[OpTaskInvocation]
-    B[TaskInvocation]
+    classDef blue fill:#5b9bd5
+    classDef green fill:#70ad47
+
+    A:::blue[OpTaskInvocation]
+    B:::blue[TaskInvocation]
     C[ExecutableTaskInvocation]
     D[TensorlessTaskInvocation]
     E[IndexTaskInvocation]
-    F[Legion::TaskLauncher]
-    G[Legion::IndexTaskLauncher]
+    F:::green[Legion::TaskLauncher]
+    G:::green[Legion::IndexTaskLauncher]
     H[ExecutableIndexTaskInvocation]
     I[TensorlessIndexTaskInvocation]
     A -->|compiles down to| E
