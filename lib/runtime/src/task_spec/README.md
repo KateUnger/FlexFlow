@@ -49,6 +49,7 @@ flowchart TD
 Similarly, `TaskSignature` is actually divided up into `OpTaskSignature` and `TaskSignature`.
 The flow of full compilation process is as follows:
 ```mermaid
+%%{init: { 'themeVariables': { 'fontFamily': 'monospace' }, 'flowchart': { 'curve': 'bumpY', 'defaultRenderer': 'elk' }, 'theme': 'default' } }%%
 flowchart TD
     classDef blue fill:#83b4e2
     classDef green fill:#9ccc84
@@ -85,12 +86,12 @@ flowchart TD
     AK[TaskArgumentAccessor]
     AL[add_region_requirement]
 
-    A:::blue -->|compiles to| E
+    A -->|compiles to| E
     E -->|compiles to| H
     H -->|compiles to| N
     N -->|compiles to| P
     N -->|invokes| AL
-    AL -->|on| G:::green
+    AL -->|on| G
     H -->|compiles to| I
     I -->|has member| AA
     I -->|has member| AD 
@@ -105,12 +106,12 @@ flowchart TD
     O -->|compiles to| Q
     L -->|compiles to| Q
     P -->|compiles to| Q
-    Q -->|passed to| G:::green
-    R -->|passed to| G:::green
-    G:::green -->|generates a| AG
-    G:::green -->|generates a| AH
-    G:::green -->|generates a| AI 
-    G:::green -->|generates a| AJ
+    Q -->|passed to| G
+    R -->|passed to| G
+    G -->|generates a| AG
+    G -->|generates a| AH
+    G -->|generates a| AI 
+    G -->|generates a| AJ
     AG -->|passed to| AF
     AH -->|passed to| AF
     AI -->|passed to| AF 
@@ -118,10 +119,10 @@ flowchart TD
     AF -->|generates a| AK
     AK -->|passed to| AE
     AE -->|possibly generates a| S
-    G:::green -->|possibly generates a| S
+    G -->|possibly generates a| S
     K -->|possibly generates a| S
 
-    B:::blue -->|compiles to| C
+    B -->|compiles to| C
     C -->|compiles to| N
     C -->|compiles to| D
     D -->|has member| AA
@@ -133,14 +134,14 @@ flowchart TD
     L -->|compiles to| Q
     M -->|compiles to| Q
     P -->|compiles to| Q
-    Q -->|passed to| F:::green
-    AL -->|on| F:::green
-    F:::green -->|generates a| AG
-    F:::green -->|generates a| AH
-    F:::green -->|generates a| AI 
-    F:::green -->|generates a| AJ
+    Q -->|passed to| F
+    AL -->|on| F
+    F -->|generates a| AG
+    F -->|generates a| AH
+    F -->|generates a| AI 
+    F -->|generates a| AJ
     AE -->|possibly generates a| T
-    G:::green -->|possibly generates a| T
+    G -->|possibly generates a| T
     K -->|possibly generates a| T
 
     J -->|compiles to| K
