@@ -54,13 +54,13 @@ flowchart TD
     classDef blue fill:#83b4e2
     classDef green fill:#9ccc84
     
-    A[OpTaskInvocation]
-    B[TaskInvocation]
+    A[OpTaskInvocation]:::blue
+    B[TaskInvocation]:::blue
     C[ExecutableTaskInvocation]
     D[TensorlessTaskInvocation]
     E[IndexTaskInvocation]
-    F[Legion::TaskLauncher]
-    G[Legion::IndexTaskLauncher]
+    F[Legion::TaskLauncher]:::green
+    G[Legion::IndexTaskLauncher]:::green
     H[ExecutableIndexTaskInvocation]
     I[TensorlessIndexTaskInvocation]
     J[OpTaskSignature]
