@@ -28,23 +28,23 @@ flowchart TD
     classDef blue fill:#5b9bd5
     classDef green fill:#70ad47
 
-    A:::blue[OpTaskInvocation]
-    B:::blue[TaskInvocation]
+    A[OpTaskInvocation]
+    B[TaskInvocation]
     C[ExecutableTaskInvocation]
     D[TensorlessTaskInvocation]
     E[IndexTaskInvocation]
-    F:::green[Legion::TaskLauncher]
-    G:::green[Legion::IndexTaskLauncher]
+    F[Legion::TaskLauncher]
+    G[Legion::IndexTaskLauncher]
     H[ExecutableIndexTaskInvocation]
     I[TensorlessIndexTaskInvocation]
-    A -->|compiles down to| E
+    A:::blue -->|compiles down to| E
     E -->|compiles down to| H
     H -->|compiles down to| I 
-    I -->|compiles down to| G
+    I -->|compiles down to| G:::green
 
-    B -->|compiles down to| C
+    B:::blue -->|compiles down to| C
     C -->|compiles down to| D
-    D -->|compiles down to| F
+    D -->|compiles down to| F:::green
 ```
 Similarly, `TaskSignature` is actually divided up into `OpTaskSignature` and `TaskSignature`.
 The flow of full compilation process is as follows:
