@@ -49,7 +49,7 @@ flowchart TD
 Similarly, `TaskSignature` is actually divided up into `OpTaskSignature` and `TaskSignature`.
 The flow of full compilation process is as follows:
 ```mermaid
-%%{init: {'themeVariables': {'fontFamily': 'monospace'},'flowchart': {'curve': 'bumpY','defaultRenderer': 'elk'},'theme':'default' }%%
+%%{init: {'themeVariables': {'fontFamily': 'monospace'},'flowchart': {'curve': 'bumpY','defaultRenderer': 'elk'},'theme':'default'} }%%
 flowchart TD
     classDef blue fill:#83b4e2
     classDef green fill:#9ccc84
