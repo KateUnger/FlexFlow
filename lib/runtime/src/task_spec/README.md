@@ -25,8 +25,8 @@ Thus, what we previously referred to as `TaskInvocation` is actually logically t
 
 ```mermaid
 flowchart TD
-    classDef blue fill:#5b9bd5
-    classDef green fill:#70ad47
+    classDef blue fill:#83b4e2
+    classDef green fill:#9ccc84
 
     A[OpTaskInvocation]
     B[TaskInvocation]
