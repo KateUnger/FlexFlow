@@ -20,7 +20,7 @@ struct EmbeddingAttrs {
   req<AggregateOp> aggr;
   req<DataType> data_type;
 };
-FF_VISITABLE_STRUCT(EmbeddingAttrs, num_entries, out_channels, aggr, data_type);
+FF_VISITABLE_STRUCT_NONSTANDARD_CONSTRUCTION(EmbeddingAttrs, num_entries, out_channels, aggr, data_type);
 CHECK_VALID_OP_ATTR(EmbeddingAttrs);
 
 TensorShape get_weights_shape(EmbeddingAttrs const &, TensorShape const &);

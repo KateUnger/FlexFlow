@@ -13,9 +13,10 @@
  * limitations under the License.
  */
 
-#include "kernels/cuda_helper.h"
 #include "kernels/datatype_dispatch.h"
 #include "kernels/embedding_kernels.h"
+#include "kernels/device.h"
+#include "device.h"
 
 namespace FlexFlow {
 namespace Kernels {
@@ -24,7 +25,7 @@ namespace Embedding {
 template <DataType TI, DataType TD>
 struct ForwardKernel {
   void operator()(cudaStream_t stream,
-                  EmbeddingPerDeviceState const *m,
+                  AggregateOp aggr,
                   GenericTensorAccessorR const &input,
                   GenericTensorAccessorW const &output,
                   GenericTensorAccessorR const &weight,
@@ -35,7 +36,7 @@ struct ForwardKernel {
     assert(weight.data_type == DT_HALF || weight.data_type == DT_FLOAT ||
            weight.data_type == DT_DOUBLE);
 
-    if (m->aggr == AGGR_MODE_NONE) {
+    if (aggr == AGGR_MODE_NONE) {
       embed_forward_no_aggr<TI, TD><<<GET_BLOCKS(output.domain.get_volume()),
                                       CUDA_NUM_THREADS,
                                       0,
@@ -45,7 +46,7 @@ struct ForwardKernel {
                                                 out_dim,
                                                 batch_size);
     } else {
-      assert(m->aggr == AGGR_MODE_AVG || m->aggr == AGGR_MODE_SUM);
+      assert(aggr == AggregateOp.AVG || aggr == AggregateOp.SUM);
       embed_forward_with_aggr<TI, TD><<<GET_BLOCKS(output.domain.get_volume()),
                                         CUDA_NUM_THREADS,
                                         0,
@@ -55,15 +56,15 @@ struct ForwardKernel {
                                                   out_dim,
                                                   in_dim,
                                                   batch_size,
-                                                  m->aggr);
+                                                  aggr);
     }
   }
-}
+};
 
 template <DataType TI, DataType TD>
 struct BackwardKernel {
   void operator()(cudaStream_t stream,
-                  EmbeddingPerDeviceState const *m,
+                  AggregateOp aggr,
                   GenericTensorAccessorR const &input,
                   GenericTensorAccessorR const &output,
                   GenericTensorAccessorW const &weight_grad,
@@ -71,9 +72,8 @@ struct BackwardKernel {
                   int out_dim,
                   int batch_size) {
     assert(input.data_type == DT_INT32 || input.data_type == DT_INT64);
-    assert(output.data_type == DT_HALF || output.data_type == DT_FLOAT,
-           || output.data_type == DT_DOUBLE);
-    if (m->aggr == AGGR_MODE_NONE) {
+    assert(output.data_type == DT_HALF || output.data_type == DT_FLOAT || output.data_type == DT_DOUBLE);
+    if (aggr == AGGR_MODE_NONE) {
       embed_backward_no_aggr<TI, TD><<<GET_BLOCKS(output.domain.get_volume()),
                                        CUDA_NUM_THREADS,
                                        0,
@@ -92,23 +92,23 @@ struct BackwardKernel {
                                                    out_dim,
                                                    in_dim,
                                                    batch_size,
-                                                   m->aggr);
+                                                   aggr);
     }
   }
-}
+};
 
 void forward_kernel(cudaStream_t stream,
-                    EmbeddingPerDeviceState const *m,
+                    AggregateOp aggr,
                     GenericTensorAccessorR const &input,
                     GenericTensorAccessorW const &output,
                     GenericTensorAccessorR const &weight,
                     int in_dim,
                     int out_dim,
                     int batch_size) {
-  DataTypeDispatch2<ForwardKernel>{}(m->input_data_type,
-                                     m->output_data_type,
+  DataTypeDispatch2<ForwardKernel>{}(input.data_type,
+                                     output.data_type,
                                      stream,
-                                     m,
+                                     aggr,
                                      input,
                                      output,
                                      weight,
@@ -118,20 +118,20 @@ void forward_kernel(cudaStream_t stream,
 }
 
 void backward_kernel(cudaStream_t stream,
-                     EmbeddingPerDeviceState const *m,
+                     AggregateOp aggr,
                      GenericTensorAccessorR const &input,
                      GenericTensorAccessorR const &output,
                      GenericTensorAccessorW const &weight_grad,
                      int in_dim,
                      int out_dim,
                      int batch_size) {
-  DataTypeDispatch2<BackwardKernel>{}(m->input_data_type,
-                                      m->output_data_type,
+  DataTypeDispatch2<BackwardKernel>{}(input.data_type,
+                                      output.data_type,
                                       stream,
-                                      m,
+                                      aggr,
                                       input,
                                       output,
-                                      weight,
+                                      weight_grad,
                                       in_dim,
                                       out_dim,
                                       batch_size);
@@ -172,7 +172,7 @@ __global__ void embed_forward_with_aggr(TI const *input,
                                         int out_dim,
                                         int in_dim,
                                         int batch_size,
-                                        AggrMode aggr) {
+                                        AggregateOp aggr) {
   TD scale = 1.0f / in_dim;
   CUDA_KERNEL_LOOP(i, batch_size * out_dim) {
     output[i] = 0;
@@ -181,9 +181,9 @@ __global__ void embed_forward_with_aggr(TI const *input,
     for (int j = 0; j < in_dim; j++) {
       TI wordIdx = input[idx * in_dim + j];
       output[i] = output[i] + embed[wordIdx * out_dim + off];
-      if (aggr == AGGR_MODE_SUM) {
+      if (aggr == AggregateOp.SUM) {
       } else {
-        assert(aggr == AGGR_MODE_AVG);
+        assert(aggr == AggregateOp.AVG);
         output[i] = output[i] * scale;
       }
     }
@@ -204,11 +204,11 @@ __global__ void embed_backward_no_aggr(
 // Specialization for half type
 
 template <>
-__global__ void embed_backward_no_aggr<int, half>(int const *input,
-                                                  half const *output,
-                                                  half *embed,
-                                                  int out_dim,
-                                                  int batch_size) {
+void embed_backward_no_aggr<int, half> (int const *input,
+                                        half const *output,
+                                        half *embed,
+                                        int out_dim,
+                                        int batch_size) {
   CUDA_KERNEL_LOOP(i, batch_size * out_dim) {
     int idx = i / out_dim;
     int off = i % out_dim;
@@ -219,7 +219,7 @@ __global__ void embed_backward_no_aggr<int, half>(int const *input,
     assert(false);
     // TODO: this implementation may result in race condition
     // so we use an assertion failure to warn users
-    embed[wordIdx * out_dim + off] += output[i];
+    embed[wordIdx * out_dim + off] = embed[wordIdx * out_dim + off] + output[i];
 #endif
   }
 }
@@ -240,7 +240,7 @@ __global__ void embed_backward_no_aggr<int64_t, half>(int64_t const *input,
     assert(false);
     // TODO: this implementation may result in race condition
     // so we use an assertion failure to warn users
-    embed[wordIdx * out_dim + off] += output[i];
+    embed[wordIdx * out_dim + off] = embed[wordIdx * out_dim + off] + output[i];
 #endif
   }
 }
@@ -252,16 +252,16 @@ __global__ void embed_backward_with_aggr(TI const *input,
                                          int out_dim,
                                          int in_dim,
                                          int batch_size,
-                                         AggrMode aggr) {
+                                         AggregateOp aggr) {
   TD scale = 1.0f / in_dim;
   CUDA_KERNEL_LOOP(i, batch_size * out_dim) {
     int idx = i / out_dim;
     int off = i % out_dim;
     TD gradient;
-    if (aggr == AGGR_MODE_SUM) {
+    if (aggr == AggregateOp.SUM) {
       gradient = output[i];
     } else {
-      assert(aggr == AGGR_MODE_AVG);
+      assert(aggr == AggregateOp.AVG);
       gradient = output[i] * scale;
     }
     for (int j = 0; j < in_dim; j++) {
@@ -280,16 +280,16 @@ __global__ void embed_backward_with_aggr<int, half>(int const *input,
                                                     int out_dim,
                                                     int in_dim,
                                                     int batch_size,
-                                                    AggrMode aggr) {
+                                                    AggregateOp aggr) {
   half scale = 1.0f / in_dim;
   CUDA_KERNEL_LOOP(i, batch_size * out_dim) {
     int idx = i / out_dim;
     int off = i % out_dim;
     half gradient;
-    if (aggr == AGGR_MODE_SUM) {
+    if (aggr == AggregateOp.SUM) {
       gradient = output[i];
     } else {
-      assert(aggr == AGGR_MODE_AVG);
+      assert(aggr == AggregateOp.AVG);
       gradient = output[i] * scale;
     }
     for (int j = 0; j < in_dim; j++) {
@@ -313,16 +313,16 @@ __global__ void embed_backward_with_aggr<int64_t, half>(int64_t const *input,
                                                         int out_dim,
                                                         int in_dim,
                                                         int batch_size,
-                                                        AggrMode aggr) {
+                                                        AggregateOp aggr) {
   half scale = 1.0f / in_dim;
   CUDA_KERNEL_LOOP(i, batch_size * out_dim) {
     int idx = i / out_dim;
     int off = i % out_dim;
     half gradient;
-    if (aggr == AGGR_MODE_SUM) {
+    if (aggr == AggregateOp.SUM) {
       gradient = output[i];
     } else {
-      assert(aggr == AGGR_MODE_AVG);
+      assert(aggr == AggregateOp.AVG);
       gradient = output[i] * scale;
     }
     for (int j = 0; j < in_dim; j++) {
