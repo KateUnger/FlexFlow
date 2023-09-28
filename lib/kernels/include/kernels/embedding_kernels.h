@@ -11,18 +11,18 @@ namespace Embedding {
 void forward_kernel(ffStream_t stream,
                     AggregateOp aggr,
                     GenericTensorAccessorR const &input,
-                    GenericTensorAccessorW const &output,
+                    GenericTensorAccessorR const &output,
                     GenericTensorAccessorR const &weight,
-                    int in_dim,
-                    int out_dim,
+                    size_t in_dim,
+                    size_t out_dim,
                     int batch_size);
 void backward_kernel(ffStream_t stream,
                      AggregateOp aggr,
                      GenericTensorAccessorR const &input,
                      GenericTensorAccessorR const &output,
-                     GenericTensorAccessorW const &weight_grad,
-                     int in_dim,
-                     int out_dim,
+                     GenericTensorAccessorR const &weight_grad,
+                     size_t in_dim,
+                     size_t out_dim,
                      int batch_size);
 
 void rand_generate_int64_wrapper(int64_t *ptr, size_t size, int64_t p);

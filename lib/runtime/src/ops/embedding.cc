@@ -14,7 +14,10 @@
  */
 
 #include "embedding.h"
-#include "utils/hash_utils.h"
+#include "kernels/embedding_kernels.h"
+#include "utils/hash-utils.h"
+#include "op-attrs/get_output_shapes.h"
+#include "op-attrs/ops/embedding.h"
 
 namespace FlexFlow {
 
@@ -25,46 +28,47 @@ using Legion::Task;
 
 using namespace FlexFlow::Kernels::Embedding;
 
-struct Slots {
+enum Slots {
   INPUT,
-  OUPUT,
+  OUTPUT,
   WEIGHT,
-  ATTRS
+  ATTRS,
+  PROFILING
 };
 
-OpTaskInvocation forward(MultiHeadAttentionAttrs const &attrs) {
+OpTaskInvocation forward(EmbeddingAttrs const &attrs) {
   OpTaskBinding b;
   
-  b.bind(ATTRS, attrs);
   b.bind(INPUT, input_tensor(2));
   b.bind(OUTPUT, output_tensor(0));
   b.bind(WEIGHT, weight_tensor(0));
 
+  b.bind_arg(ATTRS, attrs);
   b.bind_arg(PROFILING, profiling_settings());
 
   return {EMBED_FWD_TASK_ID, b};
 }
 
-OpTaskInvocation backward(MultiHeadAttentionAttrs const &attrs) {
-  OpTaskBinding b = infer_bwd_binding(forward(attrs).binding);
+OpTaskInvocation backward(EmbeddingAttrs const &attrs) {
+  OpTaskBinding binding = infer_bwd_binding(forward(attrs).binding);
 
-  return {EMBED_BWD_TASK_ID, b};
+  return {EMBED_BWD_TASK_ID, binding};
 }
 
 static optional<float> forward_task_impl(TaskArgumentAccessor const &acc) {
-  auto input = acc.get_tensor<Permissions::RO>(QUERY);
-  auto output = acc.get_tensor<Permissions::RO>(KEY);
-  auto weight = acc.get_tensor<Permissions::RO>(VALUE);
+  auto input = acc.get_tensor<Permissions::RO>(INPUT);
+  auto output = acc.get_tensor<Permissions::RO>(OUTPUT);
+  auto weight = acc.get_tensor<Permissions::RO>(WEIGHT);
   EmbeddingAttrs attrs = acc.get_argument<EmbeddingAttrs>(ATTRS);
   ProfilingSettings profiling = acc.get_argument<ProfilingSettings>(PROFILING);
 
   return profile(forward_kernel,
                  profiling,
-                 "[MultiHeadAttention] forward_time = %.2lfms\n",
+                 "[Embedding] forward_time = %.2lfms\n",
                  attrs.aggr,
-                 input.get_float_ptr(),
-                 output.get_float_ptr(),
-                 weight.get_float_ptr(),
+                 input,
+                 output,
+                 weight,
                  input.shape.get_dim(),
                  output.shape.get_dim(),
                  attrs.num_entries);
@@ -78,26 +82,31 @@ static void forward_task(Task const *task,
   forward_task_impl(acc);
 }
 
-void Embedding::backward_task(Task const *task,
-                              std::vector<PhysicalRegion> const &regions,
-                              Context ctx,
-                              Runtime *runtime) {
-  auto input = acc.get_tensor<Permissions::RO>(QUERY);
-  auto output = acc.get_tensor<Permissions::RO>(KEY);
-  auto weight_grad = acc.get_tensor_grad<Permissions::RO>(VALUE);
+static optional<float> backward_task_impl(TaskArgumentAccessor const &acc) {
+  auto input = acc.get_tensor<Permissions::RO>(INPUT);
+  auto output = acc.get_tensor<Permissions::RO>(OUTPUT);
+  auto weight_grad = acc.get_tensor_grad<Permissions::RO>(WEIGHT);
   EmbeddingAttrs attrs = acc.get_argument<EmbeddingAttrs>(ATTRS);
   ProfilingSettings profiling = acc.get_argument<ProfilingSettings>(PROFILING);
 
-  return profile(forward_kernel,
+  return profile(backward_kernel,
                  profiling,
-                 "[MultiHeadAttention] forward_time = %.2lfms\n",
+                 "[Embedding] forward_time = %.2lfms\n",
                  attrs.aggr,
-                 input.get_float_ptr(),
-                 output.get_float_ptr(),
-                 weight_grad.get_float_ptr(),
+                 input,
+                 output,
+                 weight_grad,
                  input.shape.get_dim(),
                  output.shape.get_dim(),
                  attrs.num_entries);
+}
+
+static void backward_task(Task const *task,
+                          std::vector<PhysicalRegion> const &regions,
+                          Context ctx,
+                          Runtime *runtime) {
+  TaskArgumentAccessor acc(task, regions, ctx, runtime);
+  backward_task_impl(acc);
 }
 
 CostMetrics measure_operator_cost(SimEnvFactory const &sim,
@@ -108,13 +117,12 @@ CostMetrics measure_operator_cost(SimEnvFactory const &sim,
   auto env = sim.new_environment();
 
   ParallelTensorShape output_shape = get_output_shape(attrs, input.shape);
-  ParallelTensorShape weight_shape = get_weights_shape(attrs, input.shape);
+  TensorShape weight_shape = get_weights_shape(attrs, get_piece_shape(input.shape));
 
   SimTaskBinding fwd_binding;
-  fwd_binding.bind(INPUT, input_shape);
+  fwd_binding.bind(INPUT, input.shape);
   fwd_binding.bind(OUTPUT, output_shape);
   fwd_binding.bind(WEIGHT, weight_shape);
-  fwd_binding.bind(OUTPUT, output_shape);
   fwd_binding.bind_arg(PROFILING, settings);
   fwd_binding.bind_arg(ATTRS, attrs);
 
@@ -138,7 +146,7 @@ void register_task<EMBED_FWD_TASK_ID>() {
   fwd.add_input_slot(OUTPUT);
   fwd.add_input_slot(WEIGHT);
   
-  fwd.add_arg_slot<MultiHeadAttentionAttrs>(ATTRS);
+  fwd.add_arg_slot<EmbeddingAttrs>(ATTRS);
   fwd.add_arg_slot<ProfilingSettings>(PROFILING);
 
   register_task(
@@ -153,6 +161,7 @@ void register_task<EMBED_BWD_TASK_ID>() {
   register_task(
       EMBED_BWD_TASK_ID, "Embed Bwd", bwd, backward_task);
 }
+
 
 }; // namespace FlexFlow
 

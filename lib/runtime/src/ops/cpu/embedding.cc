@@ -1,5 +1,13 @@
-#include "embedding.h"
-#include "utils/hash_utils.h"
+#include "ops/embedding.h"
+#include "utils/hash-utils.h"
+
+namespace FlexFlow {
+
+using Legion::Context;
+using Legion::PhysicalRegion;
+using Legion::Runtime;
+using Legion::Task;
+using Legion::Rect;
 
 void EmbeddingLookup_int64_t_float_float__avx2_fma(int const block_size,
                                                    int const output_size,
@@ -282,10 +290,10 @@ void forward_task_cpu(Task const *task,
       ctx, task->regions[1].region.get_index_space());
   Rect<2> rect_weight = runtime->get_index_space_domain(
       ctx, task->regions[2].region.get_index_space());
-  coord_t batch_size = rect_input.hi[1] - rect_input.lo[1] + 1;
+  size_t batch_size = rect_input.hi[1] - rect_input.lo[1] + 1;
   // Input and output have same batch size
   assert(batch_size == rect_output.hi[1] - rect_output.lo[1] + 1);
-  coord_t out_dim = rect_output.hi[0] - rect_output.lo[0] + 1;
+  size_t out_dim = rect_output.hi[0] - rect_output.lo[0] + 1;
   // Weight and output have same out dim
   assert(out_dim == rect_weight.hi[1] - rect_weight.lo[1] + 1);
   // const int64_t* input = acc_input.ptr(rect_input);
@@ -296,7 +304,7 @@ void forward_task_cpu(Task const *task,
   int data_size = 1000000; // FIXME
   // For now we are assuming the length is always 1
   int index_size = rect_input.hi[1] - rect_input.lo[1] + 1;
-  coord_t in_dim = rect_input.hi[0] - rect_input.lo[0] + 1;
+  size_t in_dim = rect_input.hi[0] - rect_input.lo[0] + 1;
   assert(in_dim == 1);
   std::vector<int> lengths(output_size, 1);
   embed_forward(acc_input.ptr(rect_input),
@@ -325,11 +333,10 @@ void backward_task_cpu(Task const *task,
       ctx, task->regions[1].region.get_index_space());
   Rect<2> rect_weight = runtime->get_index_space_domain(
       ctx, task->regions[2].region.get_index_space());
-  coord_t batch_size = rect_input.hi[1] - rect_input.lo[1] + 1;
+  size_t batch_size = rect_input.hi[1] - rect_input.lo[1] + 1;
   // Input and output have same batch size
   assert(batch_size == rect_output.hi[1] - rect_output.lo[1] + 1);
-  // coord_t in_dim = rect_input.hi[0] - rect_input.lo[0] + 1;
-  coord_t out_dim = rect_output.hi[0] - rect_output.lo[0] + 1;
+  size_t out_dim = rect_output.hi[0] - rect_output.lo[0] + 1;
   // Weight and output have same out dim
   assert(out_dim == rect_weight.hi[1] - rect_weight.lo[1] + 1);
   // const int64_t* input = acc_input.ptr(rect_input);
@@ -349,3 +356,5 @@ void backward_task_cpu(Task const *task,
                  index_size,
                  data_size);
 }
+
+};//namespace FlexFlow
