@@ -71,7 +71,7 @@ static optional<float> forward_task_impl(TaskArgumentAccessor const &acc) {
                  weight,
                  input.shape.get_dim(),
                  output.shape.get_dim(),
-                 attrs.num_entries);
+                 input.shape[ff_dim_t(1)]);
 }
 
 static void forward_task(Task const *task,
@@ -98,7 +98,7 @@ static optional<float> backward_task_impl(TaskArgumentAccessor const &acc) {
                  weight_grad,
                  input.shape.get_dim(),
                  output.shape.get_dim(),
-                 attrs.num_entries);
+                 input.shape[ff_dim_t(1)]);
 }
 
 static void backward_task(Task const *task,
