@@ -69,7 +69,7 @@ __inline__ __device__ T BlockReduceSum(T val, T *shared) {
 
 template <typename T>
 __global__ void
-    RowwiseMomentsCUDAKernel(int64_t N, T eps, T const *X, T *mean, T *rstd) {
+    RowwiseMomentsCUDAKernel(int64_t N, float eps, T const *X, T *mean, T *rstd) {
   __shared__ T m_shared[C10_WARP_SIZE];
   __shared__ T v_shared[C10_WARP_SIZE];
   const int64_t i = blockIdx.x;
