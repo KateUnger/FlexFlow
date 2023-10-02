@@ -67,9 +67,8 @@ __inline__ __device__ T BlockReduceSum(T val, T *shared) {
   return val;
 }
 
-template <typename T>
 __global__ void
-    RowwiseMomentsCUDAKernel(int64_t N, float eps, T const *X, T *mean, T *rstd) {
+    RowwiseMomentsCUDAKernel(int64_t N, float eps, float const *X, float *mean, float *rstd) {
   __shared__ T m_shared[C10_WARP_SIZE];
   __shared__ T v_shared[C10_WARP_SIZE];
   const int64_t i = blockIdx.x;
@@ -290,7 +289,6 @@ __global__ void GammaBetaBackwardCUDAKernel(int64_t M,
   }
 }
 
-template <DataType T>
 struct ForwardKernel {
   void operator()(cudaStream_t stream,
                   LayerNormPerDeviceState const &m,
@@ -305,7 +303,7 @@ struct ForwardKernel {
         <<<batch_size, kCUDABlockReduceNumThreads, 0, stream>>>(
             num_elements,
             eps,
-            input.get<T>(),
+            input.get_float_ptr(),
             m.mean,
             m.rstd);
     LayerNormForwardCUDAKernel<float>
