@@ -43,11 +43,11 @@ void rand_generate_int32_wrapper(int32_t *ptr, size_t size, int32_t p) {
 
 template <typename TI, typename TD>
 __global__ void embed_forward_no_aggr(
-    // TI const *input, 
-    // TD *output, 
-    // TD const *embed, 
-    // int out_dim, 
-    // int batch_size
+    TI const *input, 
+    TD *output, 
+    TD const *embed, 
+    int out_dim, 
+    int batch_size
     ) {
   CUDA_KERNEL_LOOP(i, batch_size * out_dim) {
     output[i] = 0;
@@ -254,15 +254,15 @@ struct ForwardKernel {
            weight.data_type == DT_DOUBLE);
 
     if (aggr == AggregateOp::NONE) {
-      embed_forward_no_aggr<TI, TD><<<GET_BLOCKS(output.shape.get_volume()),
+      embed_forward_no_aggr<<<GET_BLOCKS(output.shape.get_volume()),
                                       CUDA_NUM_THREADS,
                                       0,
                                       stream>>>(
-                                                // input.get<TI>(),
-                                                // output.get<TD>(),
-                                                // weight.get<TD>(),
-                                                // out_dim,
-                                                // batch_size
+                                                input.get<TI>(),
+                                                output.get<TD>(),
+                                                weight.get<TD>(),
+                                                out_dim,
+                                                batch_size
                                                 );
     } else {
       assert(aggr == AggregateOp::AVG || aggr == AggregateOp::SUM);
